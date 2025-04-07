@@ -1,24 +1,32 @@
 package com.swajyot.log.controller;
 
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import com.swajyot.log.model.InspectionForm;
+import com.swajyot.log.service.InspectionFormPdfService;
 import com.swajyot.log.service.InspectionFormService;
 
 import java.time.LocalDate;
 import java.util.List;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.PathVariable;
 
+@RequiredArgsConstructor
 @RestController
 @RequestMapping("/api/inspection-forms")
-@RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost:5173")
 public class InspectionFormController {
 
     private final InspectionFormService inspectionFormService;
+    
+    @Autowired
+    private InspectionFormPdfService pdfService;
 
     @GetMapping
     public ResponseEntity<List<InspectionForm>> getAllForms() {
@@ -94,5 +102,32 @@ public class InspectionFormController {
     public ResponseEntity<Void> deleteForm(@PathVariable Long id) {
         inspectionFormService.deleteForm(id);
         return ResponseEntity.noContent().build();
+    }
+    
+    /**
+     * Endpoint to generate a PDF of the inspection form
+     * @param id The ID of the inspection form
+     * @return The PDF as a byte array
+     */
+    @GetMapping("/{id}/pdf")
+    public ResponseEntity<byte[]> generatePdf(@PathVariable Long id) {
+        try {
+            // Get the form by ID
+            InspectionForm form = inspectionFormService.getFormById(id);
+            
+            // Generate the PDF
+            byte[] pdfBytes = pdfService.generatePdf(form);
+            
+            // Set up response headers
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_PDF);
+            headers.setContentDispositionFormData("attachment", "inspection_form_" + form.getDocumentNo() + ".pdf");
+            headers.setCacheControl("must-revalidate, post-check=0, pre-check=0");
+            
+            return new ResponseEntity<>(pdfBytes, headers, HttpStatus.OK);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
     }
 }
